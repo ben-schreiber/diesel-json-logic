@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "diesel-json-logic",
+    "diesel-json-logic-macro-rules",
+    "diesel-json-logic-proc-macros",
+]
+resolver = "2"
