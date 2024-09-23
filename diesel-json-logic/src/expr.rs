@@ -15,7 +15,7 @@ mod tests {
     use super::JsonLogicExpr;
     use chrono::prelude::*;
     use diesel::{debug_query, pg::Pg, QueryDsl};
-    use diesel_json_logic_proc_macros::define_json_logic;
+    use diesel_json_logic_macros::define_json_logic;
 
     diesel::table! {
         tbl_one (id) {
@@ -51,7 +51,8 @@ mod tests {
                 tbl_two_created_at => DateTime<Utc>,
                 #[diesel_column_name = tbl_two::other_notes]
                 tbl_two_other_notes => String,
-            ]
+            ],
+            true,
         );
 
         let result: JsonLogicExpr<TblIdVar, i32> =
@@ -115,7 +116,8 @@ mod tests {
                 tbl_two_created_at => DateTime<Utc>,
                 #[diesel_column_name = tbl_two::other_notes]
                 tbl_two_other_notes => String,
-            ]
+            ],
+            true,
         );
 
         let json_logic_one = serde_json::from_str(r#"{"<": [{"var": "tbl_id"}, 1]}"#).unwrap();

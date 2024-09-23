@@ -1,5 +1,5 @@
 [package]
-name = "diesel_json_logic_proc_macros"
+name = "diesel_json_logic_macros"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,10 +7,12 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-diesel_json_logic_macro_rules = { path = "../diesel-json-logic-macro-rules" }
 proc-macro2 = "1.0"
 quote = "1.0.37"
 syn = "2.0.77"
+
+[features]
+utoipa = []
 
 [dev-dependencies]
 diesel = { version = "2.2", features = [
