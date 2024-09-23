@@ -11,3 +11,11 @@ diesel_json_logic_macro_rules = { path = "../diesel-json-logic-macro-rules" }
 proc-macro2 = "1.0"
 quote = "1.0.37"
 syn = "2.0.77"
+
+[dev-dependencies]
+diesel = { version = "2.2", features = [
+    "postgres",
+    "uuid",
+    "serde_json",
+    "chrono",
+] }
