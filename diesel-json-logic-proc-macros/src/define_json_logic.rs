@@ -205,7 +205,49 @@ fn generate_query_unpacking_macro(ident: Ident, columns: Vec<QueryColumn>) -> To
         &format!("impl_{}", camel_to_snake(ident.to_string())),
         Span::call_site(),
     );
-    quote! {macro_rules! #macro_name {
+    let doc = format!(
+        r##"
+    Transforms the JSON Logic queries into [`diesel`] query filters. The macro accepts two arguments - the 
+    [`{ident}`] instance and an [`IntoBoxed`][i] SQL statement.
+    
+    For example, given the following table and query struct:
+    ```ignore
+     diesel::table! {{
+        my_tbl (id) {{
+            id -> Int4,
+            best_column -> Int4,
+            second_best_column -> VarChar,
+        }}
+    }}
+    
+    define_json_logic!(
+        MyTableQuery,
+        [
+           #[diesel_column_name = my_tbl::best_column]
+           best => i32,
+        ]
+    )
+    ```
+    We can use the `impl_my_table_query` macro to transform a `MyTableQuery` query to a
+    SQL filter.
+
+    ```ignore
+    let select_stmt = my_tbl::table.select(my_tbl::id).into_boxed();
+    let json_logic_expr = serde_json::from_str(r#"{{"<": [{{"var": "best"}}, 1]}}"#).unwrap();
+    let query = MyTableQuery {{
+        best: Some(json_logic_expr),
+    }}
+    
+    select_stmt = impl_my_table_query!(query, select_stmt);
+    ```
+    Now, `select_stmt` is equivalent to `SELECT my_tbl.id FROM my_tbl WHERE my_tbl.best_column < 1;`.
+    
+    [i]: diesel::helper_types::IntoBoxed
+    "##
+    );
+    quote! {
+        #[doc = #doc]
+        macro_rules! #macro_name {
             ($query:ident, $from_stmt:ident) => {
                 diesel_json_logic_macro_rules::unpack_json_logic_query!([#(#field_names),*], $query, $from_stmt)
             };
@@ -238,9 +280,7 @@ pub fn define_json_logic(tokens: proc_macro::TokenStream) -> proc_macro::TokenSt
 
     quote! {
         #(#structs)*
-
         #query_struct
-
         #query_unpacking_macro
     }
     .into()

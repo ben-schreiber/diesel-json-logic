@@ -161,6 +161,7 @@ version = "0.1.0"
 name = "diesel_json_logic_proc_macros"
 version = "0.1.0"
 dependencies = [
+ "diesel",
  "diesel_json_logic_macro_rules",
  "proc-macro2",
  "quote",
