@@ -3,12 +3,13 @@ use quote::{format_ident, quote};
 use syn::{
     bracketed,
     parse::{Parse, ParseStream},
-    parse_macro_input, Ident, Path, Token, Type,
+    parse_macro_input, Ident, LitBool, Path, Token, Type,
 };
 
 struct JsonLogicInput {
     ident: Ident,
     columns: Vec<QueryColumn>,
+    is_test: bool,
 }
 
 struct QueryColumn {
@@ -93,9 +94,21 @@ impl Parse for JsonLogicInput {
         bracketed!(content in input);
         let columns = content.parse_terminated(QueryColumn::parse, Token![,])?;
 
+        let mut is_test = false;
+        if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            is_test = input.parse::<LitBool>()?.value();
+        }
+
+        // Parse an optional trailing comma
+        if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+        }
+
         Ok(JsonLogicInput {
             ident,
             columns: columns.into_iter().collect(),
+            is_test,
         })
     }
 }
@@ -152,7 +165,16 @@ fn generate_var_struct(
     }
 }
 
-fn generate_query_struct(struct_name: &Ident, column_names: &[QueryColumn]) -> TokenStream {
+fn generate_query_struct(
+    struct_name: &Ident,
+    column_names: &[QueryColumn],
+    is_test: bool,
+) -> TokenStream {
+    let json_logic_parent = if is_test {
+        quote! {crate}
+    } else {
+        quote! {::diesel_json_logic}
+    };
     let fields: Vec<TokenStream> = column_names
         .iter()
         .map(
@@ -164,13 +186,23 @@ fn generate_query_struct(struct_name: &Ident, column_names: &[QueryColumn]) -> T
                 let var_struct_name = query_column_name.as_var_struct_name();
                 let field_name = query_column_name.as_struct_field_name();
                 quote! {
-                    #field_name: Option<JsonLogicExpr<#var_struct_name, #ty>>
+                    #field_name: Option<#json_logic_parent::JsonLogicExpr<#var_struct_name, #ty>>
                 }
             },
         )
         .collect();
-    quote! {
+    #[cfg(feature = "utoipa")]
+    let derives = quote! {
+        #[derive(Debug, ::serde::Deserialize, PartialEq, ::utoipa::IntoParams)]
+    };
+
+    #[cfg(not(feature = "utoipa"))]
+    let derives = quote! {
         #[derive(Debug, ::serde::Deserialize, PartialEq)]
+    };
+
+    quote! {
+        #derives
         pub struct #struct_name{
             #(pub #fields),*
         }
@@ -192,7 +224,11 @@ fn camel_to_snake(s: String) -> String {
     snake_case
 }
 
-fn generate_query_unpacking_macro(ident: Ident, columns: Vec<QueryColumn>) -> TokenStream {
+fn generate_query_unpacking_macro(
+    ident: Ident,
+    columns: Vec<QueryColumn>,
+    is_test: bool,
+) -> TokenStream {
     let field_names: Vec<Ident> = columns
         .iter()
         .map(
@@ -245,18 +281,29 @@ fn generate_query_unpacking_macro(ident: Ident, columns: Vec<QueryColumn>) -> To
     [i]: diesel::helper_types::IntoBoxed
     "##
     );
+
+    let macro_parent = if is_test {
+        quote! {crate}
+    } else {
+        quote! {::diesel_json_logic}
+    };
+
     quote! {
         #[doc = #doc]
         macro_rules! #macro_name {
             ($query:ident, $from_stmt:ident) => {
-                diesel_json_logic_macro_rules::unpack_json_logic_query!([#(#field_names),*], $query, $from_stmt)
+                #macro_parent::unpack_json_logic_query!([#(#field_names),*], $query, $from_stmt)
             };
         }
     }
 }
 
 pub fn define_json_logic(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let JsonLogicInput { ident, columns } = parse_macro_input!(tokens as JsonLogicInput);
+    let JsonLogicInput {
+        ident,
+        columns,
+        is_test,
+    } = parse_macro_input!(tokens as JsonLogicInput);
     let structs: Vec<TokenStream> = columns
         .iter()
         .map(
@@ -275,8 +322,8 @@ pub fn define_json_logic(tokens: proc_macro::TokenStream) -> proc_macro::TokenSt
         )
         .collect();
 
-    let query_struct = generate_query_struct(&ident, &columns);
-    let query_unpacking_macro = generate_query_unpacking_macro(ident, columns);
+    let query_struct = generate_query_struct(&ident, &columns, is_test);
+    let query_unpacking_macro = generate_query_unpacking_macro(ident, columns, is_test);
 
     quote! {
         #(#structs)*

@@ -3,10 +3,12 @@ name = "diesel_json_logic"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+utoipa = ["diesel_json_logic_macros/utoipa"]
+
 [dependencies]
 serde = { version = "1.0.198", features = ["derive"] }
-diesel_json_logic_proc_macros = { path = "../diesel-json-logic-proc-macros" }
-diesel_json_logic_macro_rules = { path = "../diesel-json-logic-macro-rules" }
+diesel_json_logic_macros = { path = "../diesel-json-logic-macros" }
 
 
 [dev-dependencies]
@@ -18,3 +20,12 @@ diesel = { version = "2.2", features = [
     "chrono",
 ] }
 serde_json = "1.0.116"
+utoipa = { version = "4.2.3", features = [
+    "actix_extras",
+    "chrono",
+    "decimal",
+    "yaml",
+    "preserve_order",
+    "preserve_path_order",
+    "uuid",
+] }

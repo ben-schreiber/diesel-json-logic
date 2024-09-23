@@ -1,6 +1,0 @@
-[package]
-name = "diesel_json_logic_macro_rules"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
