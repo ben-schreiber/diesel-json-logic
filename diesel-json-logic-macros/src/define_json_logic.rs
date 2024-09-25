@@ -193,7 +193,7 @@ fn generate_query_struct(
         .collect();
     #[cfg(feature = "utoipa")]
     let derives = quote! {
-        #[derive(Debug, ::serde::Deserialize, PartialEq, ::utoipa::IntoParams)]
+        #[derive(Debug, ::serde::Deserialize, PartialEq, ::utoipa::IntoParams, ::utoipa::ToSchema)]
     };
 
     #[cfg(not(feature = "utoipa"))]
