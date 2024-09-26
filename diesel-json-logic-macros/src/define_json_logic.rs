@@ -165,6 +165,59 @@ fn generate_var_struct(
     }
 }
 
+fn generate_query_struct_string_fields(
+    struct_name: &Ident,
+    column_names: &[QueryColumn],
+) -> TokenStream {
+    let string_struct_name = format_ident!("{struct_name}String");
+    let fields: Vec<TokenStream> = column_names
+        .iter()
+        .map(
+            |QueryColumn {
+                 query_column_name, ..
+             }| {
+                let field_name = query_column_name.as_struct_field_name();
+                quote! {
+                    #field_name: Option<String>
+                }
+            },
+        )
+        .collect();
+    let fields_into: Vec<TokenStream> = column_names.iter().map(
+        |QueryColumn {
+             query_column_name, ..
+         }| {
+            let field_name = query_column_name.as_struct_field_name();
+            quote! {
+                #field_name: value.#field_name.map(|ref v| ::serde_json::from_str(v)).transpose()?
+            }
+         },
+    ).collect();
+    #[cfg(feature = "utoipa")]
+    let derives = quote! {
+        #[derive(Debug, ::serde::Deserialize, PartialEq, ::utoipa::IntoParams)]
+    };
+
+    #[cfg(not(feature = "utoipa"))]
+    let derives = quote! {
+        #[derive(Debug, ::serde::Deserialize, PartialEq)]
+    };
+
+    quote! {
+        #derives
+        pub struct #string_struct_name{
+            #(pub #fields),*
+        }
+
+        impl TryFrom<#string_struct_name> for #struct_name {
+            type Error = ::serde_json::Error;
+            fn try_from(value: #string_struct_name) -> Result<Self, Self::Error> {
+                Ok(Self {#(#fields_into),*})
+            }
+        }
+    }
+}
+
 fn generate_query_struct(
     struct_name: &Ident,
     column_names: &[QueryColumn],
@@ -323,11 +376,13 @@ pub fn define_json_logic(tokens: proc_macro::TokenStream) -> proc_macro::TokenSt
         .collect();
 
     let query_struct = generate_query_struct(&ident, &columns, is_test);
+    let query_struct_string = generate_query_struct_string_fields(&ident, &columns);
     let query_unpacking_macro = generate_query_unpacking_macro(ident, columns, is_test);
 
     quote! {
         #(#structs)*
         #query_struct
+        #query_struct_string
         #query_unpacking_macro
     }
     .into()
